@@ -1,3 +1,5 @@
+
+
 # CardGame - C++纸牌匹配消除游戏
 
 ## 📖 项目概述
@@ -10,15 +12,15 @@
 
 ## 🏗️ 核心架构设计 (Architecture)
 
-为了避免传统游戏开发中“上帝类”（God Class）的产生，本项目将逻辑、数据与渲染严格分离：
+本项目将逻辑、数据与渲染严格分离：
 
-* **Models (运行时动态数据层):** * 以 `GameModel` 和 `CardData` 为核心，纯粹的 Plain Old Data (POD) 风格容器。
+* **Models (运行时动态数据层):** 以 `GameModel` 和 `CardData` 为核心，纯粹的 Plain Old Data (POD) 风格容器。
   * **亮点：** 隔绝了一切 Cocos2d-x 渲染依赖，支持轻量级的全量 JSON 序列化与反序列化，为后续扩展“游戏存档/读档”功能奠定了底层基础。
-* **Views (视图表现层):** * 包含 `CocosGameView`、`CocosPlayFieldView` 等。
+* **Views (视图表现层):** 包含 `CocosGameView`、`CocosPlayFieldView` 等。
   * **亮点：** 绝对的被动渲染器（Passive View）。View 层不持有任何业务逻辑，仅持有 Model 的 `const` 指针进行状态读取。所有的用户触控输入均通过 `std::function` 回调总线向外抛出，实现了与控制逻辑的完全解耦。
-* **Controllers (逻辑控制层):** * `GameController` 担任中枢调度，管理生命周期与跨模块通信。
+* **Controllers (逻辑控制层):** `GameController` 担任中枢调度，管理生命周期与跨模块通信。
   * `PlayFieldController` 和 `StackController` 处理具体的局部业务规则（如遮挡关系计算、合法性校验等）。
-* **Managers & Services (独立服务与局部管理):** * `UndoManager`：作为 Controller 的局部组合成员（严禁使用全局单例），负责维护历史操作栈。
+* **Managers & Services (独立服务与局部管理):**  `UndoManager`：作为 Controller 的局部组合成员（严禁使用全局单例），负责维护历史操作栈。
   * `GameModelFromLevelGenerator`：纯无状态服务，负责将静态的 `LevelConfig` JSON 数据清洗并转化为运行时的 `GameModel`。
 
 ------
@@ -46,14 +48,12 @@
 
 **⚠️ 工程级坑点与解决方案：**
 
-1. **对象生命周期与悬空指针（Dangling Pointer）：** * *坑点：* 若 `UndoRecord` 保存的是卡牌对象的 C++ 指针，一旦卡牌在匹配后被销毁或内存复用，回退时解引用就会导致 Crash。
+1. **对象生命周期与悬空指针（Dangling Pointer）：** 坑点：若 `UndoRecord` 保存的是卡牌对象的 C++ 指针，一旦卡牌在匹配后被销毁或内存复用，回退时解引用就会导致 Crash。
    * *解法：* 记录采用**值语义拷贝**（`CardData` 结构体）并强依赖唯一业务主键 `cardId` 进行寻址（`getPlayFieldCard(cardId)`）。即使原实体被移除，回退时也能基于 `cardId` 重新构建并塞回 Model，体现了严谨的内存安全思维。
-2. **数据状态与 UI 表现的异步撕裂：** * *坑点：* Model 数据的还原是 $O(1)$ 瞬间完成的，但 View 层的 MoveTo 动画需要 0.2 秒。如果在卡牌退回原位的这 0.2 秒内，玩家再次点击这张处于“飞行状态”的牌，就会造成判定错乱。
+2. **数据状态与 UI 表现的异步撕裂：** 坑点：Model 数据的还原是 $O(1)$ 瞬间完成的，但 View 层的 MoveTo 动画需要 0.2 秒。如果在卡牌退回原位的这 0.2 秒内，玩家再次点击这张处于“飞行状态”的牌，就会造成判定错乱。
    * *演进方案：* 当前 UI 层通过简易的状态标志位进行控制。在更复杂的大型工程中，此处可引入全局的 `UIEventLock`（输入锁）或状态机（FSM），在动画播放期间挂起底层 Touch 事件的派发。
 
 ### 3. 价值意义
-
-这一机制的设计具有极高的工程价值。它实现了真正的**高内聚、低耦合**：
 
 * **空间复杂度极优：** 相比于每一步保存整个桌面的状态（包含数十张牌的坐标、翻面状态），只保存操作相关的 2 张牌的数据，内存开销降低了一个数量级。
 * **职责边界清晰：** 业务逻辑（怎么打牌）和 历史回溯逻辑（怎么撤销）互不干涉。未来即使加入再多花里胡哨的特效或新规则，Undo 机制底层代码也无需改动一行，保证了底盘的绝对稳定。
@@ -84,4 +84,14 @@
 * **新增回退类型（如：撤销一次洗牌技能）：**
 
   扩展 `UndoRecord` 的 `operationType` 枚举，在 `GameController::handleUndoClick` 中新增 `switch/case` 路由，并实现对应的还原算法即可。
+
+
+
+
+
+
+
+
+
+
 
